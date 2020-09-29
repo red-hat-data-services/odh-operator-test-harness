@@ -1,4 +1,4 @@
-FROM registry.svc.ci.openshift.org/openshift/release:golang-1.13 AS builder
+FROM registry.redhat.io/ubi8/go-toolset AS builder
 
 ENV PKG=/go/src/github.com/crobby/odh-operator-test-harness/
 WORKDIR ${PKG}
