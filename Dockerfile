@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi8/go-toolset AS builder
+FROM registry.access.redhat.com/ubi8/go-toolset AS builder
 
 ENV PKG=/go/src/github.com/crobby/odh-operator-test-harness/
 WORKDIR ${PKG}
