@@ -16,6 +16,10 @@ RUN mkdir -p ${HOME} &&\
     chown 1001:0 ${HOME} &&\
     chmod ug+rwx ${HOME}
 
+RUN mkdir -p /test-run-results &&\
+    chown 1001:0 /test-run-results &&\
+    chmod ug+rwx /test-run-results
+
 COPY --from=builder /go/src/github.com/crobby/odh-operator-test-harness/odh-operator-test-harness.test odh-operator-test-harness.test
 RUN chmod +x odh-operator-test-harness.test
 
