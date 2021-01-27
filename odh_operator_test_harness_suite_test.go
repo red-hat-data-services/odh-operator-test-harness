@@ -4,12 +4,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/crobby/odh-operator-test-harness/pkg/metadata"
+	"github.com/red-hat-data-services/odh-operator-test-harness/pkg/metadata"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/reporters"
 	. "github.com/onsi/gomega"
 
-	_ "github.com/crobby/odh-operator-test-harness/pkg/tests"
+	_ "github.com/red-hat-data-services/odh-operator-test-harness/pkg/tests"
 )
 
 const (
