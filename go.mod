@@ -1,4 +1,4 @@
-module github.com/crobby/odh-operator-test-harness
+module github.com/red-hat-data-services/odh-operator-test-harness
 
 go 1.14
 

@@ -2,7 +2,7 @@ FROM registry.access.redhat.com/ubi8/go-toolset AS builder
 
 USER root
 
-ENV PKG=/go/src/github.com/crobby/odh-operator-test-harness/
+ENV PKG=/go/src/github.com/red-hat-data-services/odh-operator-test-harness/
 WORKDIR ${PKG}
 RUN chmod -R 755 ${PKG}
 
@@ -20,7 +20,7 @@ RUN mkdir -p /test-run-results &&\
     chown 1001:0 /test-run-results &&\
     chmod ug+rwx /test-run-results
 
-COPY --from=builder /go/src/github.com/crobby/odh-operator-test-harness/odh-operator-test-harness.test odh-operator-test-harness.test
+COPY --from=builder /go/src/github.com/red-hat-data-services/odh-operator-test-harness/odh-operator-test-harness.test odh-operator-test-harness.test
 RUN chmod +x odh-operator-test-harness.test
 
 ENTRYPOINT [ "/odh-operator-test-harness.test" ]
