@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: odh-manifests-test-job
+  namespace: redhat-ods-applications
+  labels:
+    app:  odh-manifests-test
+    test: osd-e2e-test
+spec:
+  backoffLimit: 2
+  template:
+    metadata:
+      name: odh-manifests-test-pod
+    spec:
+      containers:
+      - command:
+        - /bin/sh
+        - -c
+        - $HOME/peak/installandtest.sh
+        env:
+        - name: PATH
+          value: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+        - name: TESTS_REGEX
+          value: jupyterhub_load
+        - name: ODHPROJECT
+          value: redhat-ods-applications
+        - name: ARTIFACT_DIR
+          value: /tmp/artifacts
+        - name: SKIP_OPERATOR_INSTALL
+          value: "TRUE"
+        - name: SKIP_KFDEF_INSTALL    # For manual kfdef install
+          value: "TRUE"
+        - name: TEST_ODS_ON_OSD
+          value: "TRUE"
+        - name: PUSHGATEWAY_URL
+          value: "http://pushgateway-dh-prod-monitoring.cloud.datahub.psi.redhat.com"         
+        image: quay.io/jooholee/odh-manifests-test:latest
+        name: odh-manifests-test
+        resources: {}
+        volumeMounts:
+        - mountPath: /tmp/artifacts
+          name: artifacts
+      volumes:
+      - emptyDir: {}
+        name: artifacts
+      restartPolicy: Never
+      serviceAccountName: odh-manifests-test-sa
+
+
+

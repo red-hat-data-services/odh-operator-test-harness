@@ -11,6 +11,9 @@ type metadata struct {
 	// Whether the CRD was found. Typically Spyglass seems to have issues displaying non-strings, so
 	// this will be written out as a string despite the native JSON boolean type.
 	FoundCRD bool `json:"found-crd,string"`
+
+	// JuypterHubLoadTest set true if odh manifests test jupyterhub load test succeeded.
+	JuypterHubLoadTest string `json:"juypterhub-load-test,string"`
 }
 
 // Instance is the singleton instance of metadata.
