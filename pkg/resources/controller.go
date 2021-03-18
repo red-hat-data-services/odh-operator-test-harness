@@ -1,11 +1,17 @@
 package resources
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"sort"
 
 	corev1 "k8s.io/api/core/v1"
+
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -21,7 +27,8 @@ import (
 )
 
 const (
-	odhNamespace      = "redhat-ods-applications"
+	// OdhNamespace      = "opendatahub"
+	OdhNamespace      = "redhat-ods-applications"
 	odhServiceAccount = "odh-manifests-test-sa"
 	odhRoleBinding    = "odh-manifests-test-rb"
 )
@@ -44,18 +51,18 @@ func PrepareTest(config *rest.Config) {
 	}
 
 	// create SA for odh manifests test job
-	_, err = clientset.CoreV1().ServiceAccounts(odhNamespace).Get(odhServiceAccount, metav1.GetOptions{})
+	_, err = clientset.CoreV1().ServiceAccounts(OdhNamespace).Get(odhServiceAccount, metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
-		_, err = clientset.CoreV1().ServiceAccounts(odhNamespace).Create(newSA())
+		_, err = clientset.CoreV1().ServiceAccounts(OdhNamespace).Create(newSA())
 		if err != nil {
 			panic(err.Error())
 		}
 
 	}
 
-	_, err = clientset.RbacV1().RoleBindings(odhNamespace).Get(odhRoleBinding, metav1.GetOptions{})
+	_, err = clientset.RbacV1().RoleBindings(OdhNamespace).Get(odhRoleBinding, metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
-		_, err = clientset.RbacV1().RoleBindings(odhNamespace).Create(newRoleBinding())
+		_, err = clientset.RbacV1().RoleBindings(OdhNamespace).Create(newRoleBinding())
 		if err != nil {
 			panic(err.Error())
 		}
@@ -65,12 +72,12 @@ func PrepareTest(config *rest.Config) {
 		LabelSelector: fmt.Sprintf("app=%s", odhLabels["app"]),
 		Limit:         100,
 	}
-	joblist, err := clientset.BatchV1().Jobs(odhNamespace).List(listOptions)
+	joblist, err := clientset.BatchV1().Jobs(OdhNamespace).List(listOptions)
 	if err != nil {
 		panic(err.Error())
 	}
 	if len(joblist.Items) > 0 {
-		err = clientset.BatchV1().Jobs(odhNamespace).DeleteCollection(&metav1.DeleteOptions{}, listOptions)
+		err = clientset.BatchV1().Jobs(OdhNamespace).DeleteCollection(&metav1.DeleteOptions{}, listOptions)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -79,6 +86,7 @@ func PrepareTest(config *rest.Config) {
 	err = createJob(context.Background(), config)
 
 	if err != nil {
+		fmt.Printf("Failed to create Job: %v\n", err)
 		panic(err.Error())
 	}
 
@@ -88,7 +96,7 @@ func newSA() *corev1.ServiceAccount {
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      odhServiceAccount,
-			Namespace: odhNamespace,
+			Namespace: OdhNamespace,
 			Labels:    odhLabels,
 		},
 	}
@@ -99,7 +107,7 @@ func newRoleBinding() *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      odhRoleBinding,
-			Namespace: odhNamespace,
+			Namespace: OdhNamespace,
 			Labels:    odhLabels,
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -117,7 +125,12 @@ func newRoleBinding() *rbacv1.RoleBinding {
 }
 
 func createJob(ctx context.Context, cfg *rest.Config) error {
-	jobYaml, err := ioutil.ReadFile("/home/odh-manifest-test-job.yaml")
+	job_yaml := "/home/odh-manifests-test-job.yaml"
+	if os.Getenv("JOB_PATH") != "" {
+		job_yaml = os.Getenv("JOB_PATH")
+	}
+
+	jobYaml, err := ioutil.ReadFile(job_yaml)
 
 	if err != nil {
 		return fmt.Errorf("Error reading job template file: %s, %v", jobYaml, err)
@@ -126,27 +139,27 @@ func createJob(ctx context.Context, cfg *rest.Config) error {
 	// 1. Prepare a RESTMapper to find GVR
 	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error creating discoveryclient: %v", err)
 	}
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
 
 	// 2. Prepare the dynamic client
 	dyn, err := dynamic.NewForConfig(cfg)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error creating dynamic client: %v", err)
 	}
 
 	// 3. Decode YAML manifest into unstructured.Unstructured
 	obj := &unstructured.Unstructured{}
 	_, gvk, err := decUnstructured.Decode([]byte(jobYaml), nil, obj)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error getting unstructed data: %v", err)
 	}
 
 	// 4. Find GVR
 	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error finding GVR: %v", err)
 	}
 
 	// 5. Obtain REST interface for the GVR
@@ -162,9 +175,75 @@ func createJob(ctx context.Context, cfg *rest.Config) error {
 	_, err = dr.Create(obj, metav1.CreateOptions{})
 
 	if err != nil {
-		return err
+		return fmt.Errorf("Error creating a resource(Job): %v", err)
 	}
 
 	return nil
 
+}
+
+func WriteLogFromPod(jobName string, clientset *kubernetes.Clientset) error {
+	count := int64(200)
+	podList, err := clientset.CoreV1().Pods(OdhNamespace).List(metav1.ListOptions{LabelSelector: "job-name=" + jobName})
+	if err != nil {
+		fmt.Printf("job pod does not exist: %v", err)
+		return err
+	}
+
+	sortedPodList := podList.Items
+	sort.Slice(sortedPodList, func(i, j int) bool {
+		return sortedPodList[i].Status.StartTime.Before(sortedPodList[j].Status.StartTime)
+	})
+
+	var targetPod corev1.Pod
+
+	for _, p := range sortedPodList {
+		if p.Status.Phase != "Running" {
+			targetPod = p
+			break
+		}
+	}
+
+	podLogOptions := corev1.PodLogOptions{
+		TailLines: &count,
+	}
+	podLogRequest := clientset.CoreV1().
+		Pods(OdhNamespace).
+		GetLogs(targetPod.Name, &podLogOptions)
+
+	stream, err := podLogRequest.Stream()
+	if err != nil {
+		fmt.Printf("Can not read the failed pod log: %v", err)
+		return err
+	}
+	// defer stream.Close()
+
+	logFile, err := os.Create(filepath.Join("/test-run-results", "error.log"))
+	if err != nil {
+		return err
+	}
+
+	// defer logFile.Close()
+	bufferedLogFile := bufio.NewWriter(logFile)
+
+	for {
+		buf := make([]byte, 2000)
+		numBytes, err := stream.Read(buf)
+		if numBytes == 0 {
+			break
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		message := string(buf[:numBytes])
+		fmt.Print(message)
+		bufferedLogFile.WriteString(message)
+		bufferedLogFile.Flush()
+	}
+	logFile.Close()
+	stream.Close()
+	return nil
 }

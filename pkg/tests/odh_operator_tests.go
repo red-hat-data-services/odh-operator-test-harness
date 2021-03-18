@@ -2,15 +2,15 @@ package tests
 
 import (
 	"flag"
-	"path/filepath"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/red-hat-data-services/odh-operator-test-harness/pkg/metadata"
-	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"github.com/red-hat-data-services/odh-operator-test-harness/pkg/resources"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -51,30 +51,54 @@ var _ = ginkgo.Describe("ODH Operator Tests", func() {
 	})
 
 	ginkgo.It("Jupyterhub Load Test for Tensorflow and Pytorch", func() {
+
 		resources.PrepareTest(config)
-		client, err := kubernetes.NewForConfig(config)
+		clientset, err := kubernetes.NewForConfig(config)
 		Expect(err).NotTo(HaveOccurred())
 		var checkErr error = nil
+		retry := 0
 
 		for {
-			job, err := client.BatchV1().Jobs("redhat-ods-applications").Get("odh-manifest-test-job", v1.GetOptions{})
+			job, err := clientset.BatchV1().Jobs(resources.OdhNamespace).Get("odh-manifests-test-job", v1.GetOptions{})
 			if err != nil {
 				//Failed
-				checkErr= err
-				metadata.Instance.JuypterHubLoadTest = "Failed"
-				time.Sleep(1 * time.Minute)
-			}
-			if job.Status.Succeeded >= 1 {
-					// Succeeded
-					metadata.Instance.JuypterHubLoadTest = "Succeeded"
+				fmt.Printf("Job Error: %v", err)
+				checkErr = err
+				metadata.Instance.SucceedJuypterHubLoadTest = false
+				if retry == 20 {
+					fmt.Println("Failed - Timeout 20mins")
 					break
+				}
 			}
-			if job.Status.Failed >= 2{
-				checkErr= fmt.Errorf("job failed")
-				metadata.Instance.JuypterHubLoadTest = "Failed"
+			fmt.Printf("job.Status.Succeeded: %d\n", job.Status.Succeeded)
+			fmt.Printf("job.Status.Failed: %d\n", job.Status.Failed)
+			if job.Status.Succeeded >= 1 {
+				// Succeeded
+				metadata.Instance.SucceedJuypterHubLoadTest = true
+				fmt.Println("Job is successfully finished.")
 				break
 			}
 
+			if job.Status.Failed >= 2 {
+				checkErr = fmt.Errorf("Job failed more than 2 times")
+				metadata.Instance.SucceedJuypterHubLoadTest = false
+				if err := resources.WriteLogFromPod(job.Name, clientset); err != nil {
+					checkErr = fmt.Errorf("Writing log failed")
+					break
+				}
+				break
+			}
+			fmt.Println("Job is not finished")
+			fmt.Printf("You waited for %d Mins\n", retry)
+			time.Sleep(1 * time.Minute)
+			retry++
+			fmt.Println("")
+			fmt.Println("---------------------")
+		}
+		if checkErr != nil {
+			fmt.Println("Job failed.")
+		} else {
+			fmt.Println("Job finished successfully.")
 		}
 		Expect(checkErr).NotTo(HaveOccurred())
 	})

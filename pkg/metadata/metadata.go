@@ -13,7 +13,7 @@ type metadata struct {
 	FoundCRD bool `json:"found-crd,string"`
 
 	// JuypterHubLoadTest set true if odh manifests test jupyterhub load test succeeded.
-	JuypterHubLoadTest string `json:"juypterhub-load-test,string"`
+	SucceedJuypterHubLoadTest bool `json:"succeed-juypterhub-load-test,string"`
 }
 
 // Instance is the singleton instance of metadata.

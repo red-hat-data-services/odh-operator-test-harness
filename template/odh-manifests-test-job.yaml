@@ -3,11 +3,13 @@ kind: Job
 metadata:
   name: odh-manifests-test-job
   namespace: redhat-ods-applications
+  # namespace: opendatahub
   labels:
-    app:  odh-manifests-test
+    app:  odh-manifests-test-job
     test: osd-e2e-test
 spec:
   backoffLimit: 2
+  completions: 1
   template:
     metadata:
       name: odh-manifests-test-pod
@@ -24,16 +26,19 @@ spec:
           value: jupyterhub_load
         - name: ODHPROJECT
           value: redhat-ods-applications
+          # value: opendatahub
         - name: ARTIFACT_DIR
           value: /tmp/artifacts
+        # - name: SKIP_INSTALL
+        #   value: "TRUE"
         - name: SKIP_OPERATOR_INSTALL
           value: "TRUE"
         - name: SKIP_KFDEF_INSTALL    # For manual kfdef install
           value: "TRUE"
-        - name: TEST_ODS_ON_OSD
-          value: "TRUE"
+        # - name: JH_NOTEBOOK_SIZE      # For better performance
+        #   value: "Medium"
         - name: PUSHGATEWAY_URL
-          value: "http://pushgateway-dh-prod-monitoring.cloud.datahub.psi.redhat.com"         
+          value: "$CHANGE_ME"      
         image: quay.io/jooholee/odh-manifests-test:latest
         name: odh-manifests-test
         resources: {}

@@ -22,7 +22,7 @@ RUN mkdir -p /test-run-results &&\
 
 COPY --from=builder /go/src/github.com/red-hat-data-services/odh-operator-test-harness/odh-operator-test-harness.test odh-operator-test-harness.test
 
-COPY template/odh-manifest-test-job.yaml /home/odh-manifest-test-job.yaml
+COPY template/odh-manifests-test-job.yaml /home/odh-manifests-test-job.yaml
 
 RUN chmod +x odh-operator-test-harness.test
 

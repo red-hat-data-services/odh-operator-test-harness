@@ -1,0 +1,48 @@
+----
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: prom-push
+spec:
+  selector:
+    matchLabels:
+      app: prom-push
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: prom-push
+    spec:
+      containers:
+      - name: pushgateway
+        image: prom/pushgateway:v1.4.0
+        imagePullPolicy: IfNotPresent
+        ports:  
+        - containerPort: 9091
+          name: web
+----	          
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    name: prom-push
+  name: prom-push
+spec:
+  ports:
+  - name: push
+    port: 80
+    targetPort: 9092
+  selector:
+    app: prom-push
+----
+
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: prom-push
+spec:
+  to:
+    name: prom-push
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

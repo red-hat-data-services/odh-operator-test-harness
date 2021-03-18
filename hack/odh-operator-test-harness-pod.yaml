@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: odh-operator-test-harness-pod
+  namespace: redhat-ods-applications
+  labels:
+    app: odh-operator-test-harness
+spec:
+  restartPolicy: Never
+  containers:
+  - name: test-results
+    command:
+    - /bin/bash
+    - -c
+    - 'trap : TERM INT; sleep infinity & wait'
+    image: docker.io/openshift/origin-cli
+    imagePullPolicy: IfNotPresent
+    volumeMounts:
+    - mountPath: /test-run-results 
+      name: test-run-results
+  - name: odh
+    image: quay.io/jooholee/odh-operator-test-harness:latest
+    imagePullPolicy: Always
+    volumeMounts:
+    - mountPath: /test-run-results 
+      name: test-run-results
+  serviceAccount: odh-manifests-test-sa
+  serviceAccountName: odh-manifests-test-sa
+  volumes:
+  - name: test-run-results
+    emptyDir: {}
