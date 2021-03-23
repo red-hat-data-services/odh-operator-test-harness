@@ -25,8 +25,9 @@ spec:
         - name: TESTS_REGEX
           value: jupyterhub_load
         - name: ODHPROJECT
-          value: redhat-ods-applications
-          # value: opendatahub
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         - name: ARTIFACT_DIR
           value: /tmp/artifacts
         # - name: SKIP_INSTALL
@@ -38,7 +39,7 @@ spec:
         # - name: JH_NOTEBOOK_SIZE      # For better performance
         #   value: "Medium"
         - name: PUSHGATEWAY_URL
-          value: "$CHANGE_ME"      
+          value: "http://prom-push-as-pushgateway.apps.zero.massopen.cloud"      
         image: quay.io/jooholee/odh-manifests-test:latest
         name: odh-manifests-test
         resources: {}

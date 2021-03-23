@@ -51,18 +51,18 @@ func PrepareTest(config *rest.Config) {
 	}
 
 	// create SA for odh manifests test job
-	_, err = clientset.CoreV1().ServiceAccounts(OdhNamespace).Get(odhServiceAccount, metav1.GetOptions{})
+	_, err = clientset.CoreV1().ServiceAccounts(OdhNamespace).Get(context.Background(), odhServiceAccount, metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
-		_, err = clientset.CoreV1().ServiceAccounts(OdhNamespace).Create(newSA())
+		_, err = clientset.CoreV1().ServiceAccounts(OdhNamespace).Create(context.Background(), newSA(), metav1.CreateOptions{})
 		if err != nil {
 			panic(err.Error())
 		}
 
 	}
 
-	_, err = clientset.RbacV1().RoleBindings(OdhNamespace).Get(odhRoleBinding, metav1.GetOptions{})
+	_, err = clientset.RbacV1().RoleBindings(OdhNamespace).Get(context.Background(), odhRoleBinding, metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
-		_, err = clientset.RbacV1().RoleBindings(OdhNamespace).Create(newRoleBinding())
+		_, err = clientset.RbacV1().RoleBindings(OdhNamespace).Create(context.Background(), newRoleBinding(), metav1.CreateOptions{})
 		if err != nil {
 			panic(err.Error())
 		}
@@ -72,12 +72,12 @@ func PrepareTest(config *rest.Config) {
 		LabelSelector: fmt.Sprintf("app=%s", odhLabels["app"]),
 		Limit:         100,
 	}
-	joblist, err := clientset.BatchV1().Jobs(OdhNamespace).List(listOptions)
+	joblist, err := clientset.BatchV1().Jobs(OdhNamespace).List(context.Background(), listOptions)
 	if err != nil {
 		panic(err.Error())
 	}
 	if len(joblist.Items) > 0 {
-		err = clientset.BatchV1().Jobs(OdhNamespace).DeleteCollection(&metav1.DeleteOptions{}, listOptions)
+		err = clientset.BatchV1().Jobs(OdhNamespace).DeleteCollection(context.Background(), metav1.DeleteOptions{}, listOptions)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -172,7 +172,7 @@ func createJob(ctx context.Context, cfg *rest.Config) error {
 		dr = dyn.Resource(mapping.Resource)
 	}
 
-	_, err = dr.Create(obj, metav1.CreateOptions{})
+	_, err = dr.Create(context.Background(), obj, metav1.CreateOptions{})
 
 	if err != nil {
 		return fmt.Errorf("Error creating a resource(Job): %v", err)
@@ -184,7 +184,7 @@ func createJob(ctx context.Context, cfg *rest.Config) error {
 
 func WriteLogFromPod(jobName string, clientset *kubernetes.Clientset) error {
 	count := int64(200)
-	podList, err := clientset.CoreV1().Pods(OdhNamespace).List(metav1.ListOptions{LabelSelector: "job-name=" + jobName})
+	podList, err := clientset.CoreV1().Pods(OdhNamespace).List(context.Background(), metav1.ListOptions{LabelSelector: "job-name=" + jobName})
 	if err != nil {
 		fmt.Printf("job pod does not exist: %v", err)
 		return err
@@ -211,7 +211,7 @@ func WriteLogFromPod(jobName string, clientset *kubernetes.Clientset) error {
 		Pods(OdhNamespace).
 		GetLogs(targetPod.Name, &podLogOptions)
 
-	stream, err := podLogRequest.Stream()
+	stream, err := podLogRequest.Stream(context.Background())
 	if err != nil {
 		fmt.Printf("Can not read the failed pod log: %v", err)
 		return err

@@ -1,13 +1,19 @@
 package tests
 
 import (
+	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
+	"net/http"
 	"path/filepath"
 	"time"
 
 	"github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	routev1 "github.com/openshift/api/route/v1"
+	routeclientset "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
+
 	"github.com/red-hat-data-services/odh-operator-test-harness/pkg/metadata"
 	"github.com/red-hat-data-services/odh-operator-test-harness/pkg/resources"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -18,28 +24,108 @@ import (
 	"k8s.io/client-go/util/homedir"
 )
 
-var _ = ginkgo.Describe("ODH Operator Tests", func() {
-	defer ginkgo.GinkgoRecover()
+var config *rest.Config
+
+func init() {
 	// Try inClusterConfig, fallback to using ~/.kube/config
-	config, err := rest.InClusterConfig()
+	runtimeConfig, err := rest.InClusterConfig()
 	if err != nil {
 		var kubeconfig *string
+
 		if home := homedir.HomeDir(); home != "" {
 			kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+		} else {
+			kubeconfig = flag.String("kubeconfig", "", "absolute path to the kubeconfig file")
 		}
 		// use the current context in kubeconfig
 		config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+		if err != nil {
+			panic(err.Error())
+		}
+	}else {
+		config = runtimeConfig
 	}
+	
+}
+
+var _ = ginkgo.BeforeSuite(func() {
+	defer ginkgo.GinkgoRecover()
+	fmt.Println("---------------------------------------")
+	fmt.Println("Wait for Jupyterhub notebook is ready.")
+	fmt.Println("...")
+	fmt.Println("")
+
+	// Get Route Host
+	routeClientset, err := routeclientset.NewForConfig(config)
 	if err != nil {
 		panic(err.Error())
 	}
+	jupyterRoute := &routev1.Route{}
+	for {
+		tempJupyterRoute, err := routeClientset.Routes(resources.OdhNamespace).Get(context.Background(), "jupyterhub", v1.GetOptions{})
+		if err != nil {
+			fmt.Println("-------------")
+			fmt.Printf("Jupyterhub route does not exist: %v\n", err)
+			fmt.Println("Check it again after 5 secs")
+			fmt.Println("")
+		} else {
+			jupyterRoute = tempJupyterRoute
+			fmt.Println("Jupyterhub route created")
+			break
+		}
+	}
+
+	jupyterRouteHost := jupyterRoute.Spec.Host
+	// fmt.Printf("%v", jupyterRoute.Spec.Host)
+
+	//Wait until Jupyterhub route return 200 OK
+	transCfg := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, // ignore expired SSL certificates
+	}
+	client := &http.Client{Transport: transCfg}
+
+	for {
+		response, err := client.Get("https://" + jupyterRouteHost)
+		if err != nil {
+			fmt.Printf("%v", err)
+		}
+
+		if response.StatusCode == http.StatusOK {
+			fmt.Println("Juypterhub is Ready so test starts")
+			break
+		} else {
+			fmt.Println("-------------")
+			fmt.Println("Juypterhub is not Ready")
+			fmt.Printf("Jupyter notebook URL response code: %v\n", response.StatusCode)
+			fmt.Println("Check it again after 5 secs")
+			fmt.Println("")
+			time.Sleep(5 * time.Second)
+		}
+	}
+})
+
+var _ = ginkgo.Describe("ODH Operator Tests", func() {
+	// defer ginkgo.GinkgoRecover()
+	// // Try inClusterConfig, fallback to using ~/.kube/config
+	// config, err := rest.InClusterConfig()
+	// if err != nil {
+	// 	var kubeconfig *string
+	// 	if home := homedir.HomeDir(); home != "" {
+	// 		kubeconfig = flag.String("kubeconfig", filepath.Join(home, ".kube", "config"), "(optional) absolute path to the kubeconfig file")
+	// 	}
+	// 	// use the current context in kubeconfig
+	// 	config, err = clientcmd.BuildConfigFromFlags("", *kubeconfig)
+	// }
+	// if err != nil {
+	// 	panic(err.Error())
+	// }
 
 	ginkgo.It("kfdefs.kfdef.apps.kubeflow.org CRD exists", func() {
 		apiextensions, err := clientset.NewForConfig(config)
 		Expect(err).NotTo(HaveOccurred())
 
 		// Make sure the CRD exists
-		_, err = apiextensions.ApiextensionsV1beta1().CustomResourceDefinitions().Get("kfdefs.kfdef.apps.kubeflow.org", v1.GetOptions{})
+		_, err = apiextensions.ApiextensionsV1().CustomResourceDefinitions().Get(context.Background(), "kfdefs.kfdef.apps.kubeflow.org", v1.GetOptions{})
 
 		if err != nil {
 			metadata.Instance.FoundCRD = false
@@ -59,7 +145,7 @@ var _ = ginkgo.Describe("ODH Operator Tests", func() {
 		retry := 0
 
 		for {
-			job, err := clientset.BatchV1().Jobs(resources.OdhNamespace).Get("odh-manifests-test-job", v1.GetOptions{})
+			job, err := clientset.BatchV1().Jobs(resources.OdhNamespace).Get(context.Background(), "odh-manifests-test-job", v1.GetOptions{})
 			if err != nil {
 				//Failed
 				fmt.Printf("Job Error: %v", err)
