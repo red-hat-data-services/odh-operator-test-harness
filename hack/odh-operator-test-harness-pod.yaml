@@ -3,7 +3,6 @@ kind: Pod
 metadata:
   name: odh-operator-test-harness-pod
   namespace: redhat-ods-applications
-  # namespace: opendatahub
   labels:
     app: odh-operator-test-harness
 spec:

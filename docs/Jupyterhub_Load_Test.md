@@ -1,103 +1,124 @@
 # Jupyterhub Load Test
 
-This test will execute Tensorflow and Pytorch code in Jupyterhub from the ODS(Open Data Scientist) on OSD(OpenShift Dedicated).
+## Description
+This test will execute Tensorflow and Pytorch code in Jupyterhub Notebook from the ODS(Open Data Scientist) on OSD(OpenShift Dedicated).
 
-This ODH Operator Test Harness will create a job that will deploy odh manifests test image. The odh manifests test image will create a kfdef for Jupyterhub, then it will create Jupyterhubthe with ODS addon on OSD.
+*OSDE2E* will create a OSD cluster and install RHODS. Then, this **ODH Operator Test Harness** will wait until RHODS Jupyterhub is ready. When Jupyterhub route response 200 code, then it creates a job that will deploy odh manifests test image. At this moment, it only executes "jupyter_load" test script but it would be possible to extend for other test scripts too.
+
 
 ![Image](images/OSD_E2E_Test_Flow_For_Load_Test.png)
 
-## How to test?
+## How to BUILD/PUSH/TEST Jupyterhub Load Test?
+Using Makefile, you can do 2 tests:
+- **Job Test**
+  - When odh manifest image updated, you should test the image works well first. This Job Test creates a Job object(odh manifest image) on the OSD cluster and verify if the odh manifest image works successfully.
+- **Cluster Test**
+  - When above job test has no issues, this Cluster Test verify if ODH Operator Test Harness Cluster Test works successfully.
 
-- **Pre-requisites**
+
+
+### Pre-requisites
+- **Setup Environment**
   ~~~
-  git clone https://github.com/Jooho/odh-operator-test-harness.git
+  git clone https://github.com/red-hat-data-services/odh-operator-test-harness.git
   cd odh-operator-test-harness
+
+  # Create a SA/Rolebinding that has cluster-admin permission. It is for mimicking the acutal situation.
+  # Because OSDE2E will deploy Test Harness Image with cluster-admin permission.
   make test-setup
   ~~~
 
-- **Update files**
-  - Common
-    ~~~
-    vi template/odh-manifests-test-job.yaml
-    - name: PUSHGATEWAY_URL
-      value: "$CHANGE_ME"      <== Find a pushgateway url from shorturl.at/DQY49
-    ~~~
-  
-  - With OSD
-    ~~~
-    vi env.sh
-    ODS_NAMESPACE=redhat-ods-applications   <== Uncomment
-    #ODS_NAMESPACE=opendatahub              <== Comment out
-    
-    vi template/odh-manifests-test-job.yaml
-    namespace: redhat-ods-applications      <== Uncomment
-    # namespace: opendatahub                <== Comment out
 
-    vi hack/odh-operator-test-harness-pod.yaml
-    namespace: redhat-ods-applications      <== Uncomment
-    # namespace: opendatahub                <== Comment out
-
-    vi pkg/resources/controller.go	
-	  OdhNamespace      = "redhat-ods-applications"  <== Uncomment
-    // OdhNamespace      = "opendatahub"           <== Comment out
-    ~~~
-
-  - With On-prem cluster
-    ~~~
-    vi env.sh
-    ODS_NAMESPACE=opendatahub                <== Uncomment
-    #ODS_NAMESPACE=redhat-ods-applications   <== Comment out
-
-    vi template/odh-manifests-test-job.yaml
-    namespace: opendatahub                   <== UnComment
-    #namespace: redhat-ods-applications      <== Comment out
-
-    vi hack/odh-operator-test-harness-pod.yaml
-    namespace: redhat-ods-applications      <== Uncomment
-    # namespace: opendatahub                <== Comment out
-
-    vi pkg/resources/controller.go	
-    // OdhNamespace      = "redhat-ods-applications"  <== Uncomment
-    OdhNamespace      = "opendatahub"                 <== Comment out
-    ~~~
-  
-  - Based on installation status, Update Job Environments variables
-    ~~~
-     vi template/odh-manifest-test-job.yaml
-        - name: SKIP_INSTALL           ==> if you have installed ODH(ODS) and Kfdef and you will use YOUR OWN ID/PW, set TRUE
-          value: "TRUE"                 
-        - name: SKIP_OPERATOR_INSTALL  ==> if you have installed ODH(ODS) and Kfdef but you will use a DEFAULT ID/PW, set TRUE
-          value: "TRUE"
-        - name: SKIP_KFDEF_INSTALL    ==> if you have installed ODH(ODS) and Kfdef but you will use a DEFAULT ID/PW, set TRUE
-          value: "TRUE"
-    ~~~
-- **For ODH Manifest Test Job** 
-
+- **Mandatory Update Variable**
+  Find a pushgateway url from shorturl.at/DQY49
   ~~~
-  $ make job-test
-  $ make job-test-clean
+  vi template/odh-manifests-test-job.yaml
+  - name: PUSHGATEWAY_URL
+    value: "$CHANGE_ME"       <=== Update
   ~~~
 
-- **For ODH Test Harness**
+- **Update TAG for test purpose**
+  *DO NOT USE `latest` or `existing Tag`*
   ~~~
-  # Update Makefile about the Image registry variable because for test, using your own repository is much easier.
+  # Update Makefile about the Image registry variable for test image
   $vi Makefile
   ...
   DEFAULT_IMAGE_REGISTRY=quay.io
-  DEFAULT_REGISTRY_NAMESPACE=jooholee
-  DEFAULT_IMAGE_TAG=latest
+  DEFAULT_REGISTRY_NAMESPACE=modh or your own registry
+  DEFAULT_IMAGE_TAG=test        <=== Update
   ...
+  ~~~
 
-  # Build and Push the image
-  $ make image
+### Job Test
+You need to know the url of the new odh manifests image and update `odh-manifests-test-job.yaml`
+Refer to quay.io/modh/odh-manifests-test
 
-  # Start Test
-  $ make cluster-test
+- Test
+  ~~~
+  $ make job-test
+  ~~~
+- Clean
+  ~~~
+  $ make job-test-clean
+  ~~~
 
-  # Check the log
-  $ oc logs odh-operator-test-harness-pod -f -c odh
+### Cluster Test
+It will create a pod that is supposed to created by OSDe2e in the process. With this test, you can also easily check the output files that are requirements by OSDe2e test.
   
-  # Clean up test 
-  $ make cluster-test-clean
+- Build Image
+  ~~~
+  make build
+  ~~~
 
+- Push Image
+  ~~~
+  make push-image
+  ~~~
+
+- Build/Push Image
+  ~~~
+  make image
+  ~~~
+
+- Test (for success)
+  ~~~
+  make cluster-test
+  ~~~
+
+- Test (for fail)
+  ~~~
+  vi template/odh-manifests-test-job.yaml
+  - name: PUSHGATEWAY_URL
+    value: "localhost:9091"
+
+  make cluster-test
+  ~~~
+
+- Clean
+  ~~~
+  make cluster-test-clean
+  ~~~
+
+### Cluster Test Verify
+
+- Check the log
+  ~~~
+  $ oc logs odh-operator-test-harness-pod -f -c odh
+  ~~~
+
+- Check output files of the success test
+  ~~~
+  oc rsh odh-operator-test-harness-pod 
+  cd /test-run-results
+  cat junit-odh-operator.xml
+  cat add-metadata.json
+  ~~~
+
+- Check output files of the fail test
+  ~~~
+  oc rsh odh-operator-test-harness-pod 
+  cd /test-run-results
+  cat junit-odh-operator.xml
+  cat add-metadata.json
+  cat error.log
   ~~~

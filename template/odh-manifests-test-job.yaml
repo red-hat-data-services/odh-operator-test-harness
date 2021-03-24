@@ -3,7 +3,6 @@ kind: Job
 metadata:
   name: odh-manifests-test-job
   namespace: redhat-ods-applications
-  # namespace: opendatahub
   labels:
     app:  odh-manifests-test-job
     test: osd-e2e-test
@@ -34,13 +33,13 @@ spec:
         #   value: "TRUE"
         - name: SKIP_OPERATOR_INSTALL
           value: "TRUE"
-        - name: SKIP_KFDEF_INSTALL    # For manual kfdef install
+        - name: SKIP_KFDEF_INSTALL     
           value: "TRUE"
-        # - name: JH_NOTEBOOK_SIZE      # For better performance
-        #   value: "Medium"
+        # - name: JH_NOTEBOOK_SIZE      # Set Medium size, if you want to create a bigger jupyter notebook 
+        #   value: "Medium"        
         - name: PUSHGATEWAY_URL
-          value: "http://prom-push-as-pushgateway.apps.zero.massopen.cloud"      
-        image: quay.io/jooholee/odh-manifests-test:latest
+          value: "CHANGE_ME"      
+        image: quay.io/modh/odh-manifests-test:latest
         name: odh-manifests-test
         resources: {}
         volumeMounts:

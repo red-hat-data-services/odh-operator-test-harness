@@ -13,6 +13,7 @@ require (
 	k8s.io/client-go v0.20.0
 )
 
+// Fixed version for OpenShift 4.7 / Kubernetes 0.20.0
 replace (
 	github.com/openshift/api v3.9.0+incompatible => github.com/openshift/api v0.0.0-20210202165416-a9e731090f5e
 	github.com/openshift/client-go v3.9.0+incompatible => github.com/openshift/client-go v0.0.0-20210112165513-ebc401615f47

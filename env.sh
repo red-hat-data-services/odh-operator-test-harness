@@ -1,2 +1,1 @@
-# ODS_NAMESPACE=opendatahub
-ODS_NAMESPACE=redhat-ods-applications 
+ODS_NAMESPACE=redhat-ods-applications
