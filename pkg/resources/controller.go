@@ -30,7 +30,7 @@ const (
 	// OdhNamespace      = "opendatahub"
 	OdhNamespace      = "redhat-ods-applications"
 	odhServiceAccount = "odh-manifests-test-sa"
-	odhRoleBinding    = "odh-manifests-test-rb"
+	odhClusterRoleBinding    = "odh-manifests-test-rb"
 )
 
 var (
@@ -60,9 +60,9 @@ func PrepareTest(config *rest.Config) {
 
 	}
 
-	_, err = clientset.RbacV1().RoleBindings(OdhNamespace).Get(context.Background(), odhRoleBinding, metav1.GetOptions{})
+	_, err = clientset.RbacV1().ClusterRoleBindings().Get(context.Background(), odhClusterRoleBinding, metav1.GetOptions{})
 	if err != nil && errors.IsNotFound(err) {
-		_, err = clientset.RbacV1().RoleBindings(OdhNamespace).Create(context.Background(), newRoleBinding(), metav1.CreateOptions{})
+		_, err = clientset.RbacV1().ClusterRoleBindings().Create(context.Background(), newClusterRoleBinding(), metav1.CreateOptions{})
 		if err != nil {
 			panic(err.Error())
 		}
@@ -103,22 +103,22 @@ func newSA() *corev1.ServiceAccount {
 	return sa
 }
 
-func newRoleBinding() *rbacv1.RoleBinding {
-	return &rbacv1.RoleBinding{
+func newClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      odhRoleBinding,
-			Namespace: OdhNamespace,
+			Name:      odhClusterRoleBinding,			
 			Labels:    odhLabels,
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     "admin",
+			Name:     "cluster-admin",
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind: "ServiceAccount",
 				Name: odhServiceAccount,
+				Namespace: OdhNamespace,
 			},
 		},
 	}
