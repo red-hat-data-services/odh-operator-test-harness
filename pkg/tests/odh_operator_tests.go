@@ -68,6 +68,7 @@ var _ = ginkgo.BeforeSuite(func() {
 			fmt.Printf("Jupyterhub route does not exist: %v\n", err)
 			fmt.Println("Check it again after 5 secs")
 			fmt.Println("")
+			time.Sleep(10 * time.Second)
 		} else {
 			jupyterRoute = tempJupyterRoute
 			fmt.Println("Jupyterhub route created")
@@ -99,7 +100,7 @@ var _ = ginkgo.BeforeSuite(func() {
 			fmt.Printf("Jupyter notebook URL response code: %v\n", response.StatusCode)
 			fmt.Println("Check it again after 5 secs")
 			fmt.Println("")
-			time.Sleep(5 * time.Second)
+			time.Sleep(10 * time.Second)
 		}
 	}
 })
